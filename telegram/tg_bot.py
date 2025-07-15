@@ -1,17 +1,27 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import json
 import os
+import json
 from datetime import datetime
+from dotenv import load_dotenv
+import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
+)
 
-TOKEN = "YOUR_BOT_TOKEN"
+# === Setup ===
+load_dotenv()
+TOKEN = os.getenv("BOT_TOKEN")
+
 FEEDBACK_FILE = "ratings.json"
 LAST_VISUAL_FILE = "last_visual.json"
 
-# Ensure files exist
-if not os.path.exists(FEEDBACK_FILE):
-    with open(FEEDBACK_FILE, "w") as f:
-        json.dump([], f)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
+# === Data Helpers ===
 def load_last_visual():
     if os.path.exists(LAST_VISUAL_FILE):
         with open(LAST_VISUAL_FILE) as f:
@@ -26,38 +36,55 @@ def save_rating(user_id, rating):
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "visual": visual
     }
-    with open(FEEDBACK_FILE) as f:
-        data = json.load(f)
+
+    data = []
+    if os.path.exists(FEEDBACK_FILE):
+        with open(FEEDBACK_FILE) as f:
+            data = json.load(f)
     data.append(entry)
+
     with open(FEEDBACK_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-def start(update, context):
-    update.message.reply_text("Welcome to SmartArt! Rate the current visual using /rate <0–5>")
+    logger.info(f"Saved rating {rating} from user {user_id} with visual: {visual}")
 
-def rate(update, context):
-    try:
-        rating = int(context.args[0])
-        if 0 <= rating <= 5:
-            save_rating(update.effective_user.id, rating)
-            update.message.reply_text(f"Thanks! Your rating of {rating}/5 has been recorded.")
-        else:
-            update.message.reply_text("Rating must be between 0 and 5.")
-    except (IndexError, ValueError):
-        update.message.reply_text("Usage: /rate <number from 0 to 5>")
+# === Handlers ===
+def start(update, context):
+    update.message.reply_text("Welcome to SmartArt! Tap /rate to rate the current visual.")
+
+def rate_menu(update, context):
+    keyboard = [
+        [InlineKeyboardButton(f"{i} ⭐", callback_data=f"rate_{i}") for i in range(6)]
+    ]
+    update.message.reply_text("Please rate the current visual:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+def button_handler(update: Update, context):
+    query = update.callback_query
+    query.answer()
+
+    if query.data.startswith("rate_"):
+        rating = int(query.data.split("_")[1])
+        save_rating(query.from_user.id, rating)
+        query.edit_message_text(text=f"✅ Thanks for rating: {rating} ⭐")
 
 def unknown(update, context):
-    update.message.reply_text("Unknown command. Try /rate <0–5>")
+    update.message.reply_text("Unknown command. Try /rate")
 
+# === Main ===
 def main():
+    if not TOKEN:
+        print("BOT_TOKEN not found in environment!")
+        return
+
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("rate", rate))
+    dp.add_handler(CommandHandler("rate", rate_menu))
+    dp.add_handler(CallbackQueryHandler(button_handler))
     dp.add_handler(MessageHandler(Filters.command, unknown))
 
-    print("Telegram bot running...")
+    logger.info("Bot started. Waiting for messages...")
     updater.start_polling()
     updater.idle()
 
