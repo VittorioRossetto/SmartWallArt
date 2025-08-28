@@ -36,16 +36,26 @@ def write_to_influx(measurement, data):
         print(f"[ERROR] Failed to write data: {e}")
 
 # === MQTT Callbacks ===
+latest_sensor_data = {}
+
 def on_connect(client, userdata, flags, rc):
     print(f"[MQTT] Connected (rc={rc})")
     client.subscribe([(TOPIC_SENSOR, 0), (TOPIC_MOTION, 0)])
 
 def on_message(client, userdata, msg):
+    global latest_sensor_data
     try:
         payload = json.loads(msg.payload.decode())
         print(f"[MQTT] Received on {msg.topic}: {payload}")
-        measurement = "sensor_data"  # unified measurement name
-        write_to_influx(measurement, payload)
+        if msg.topic == TOPIC_SENSOR:
+            # Buffer the latest sensor data
+            latest_sensor_data = payload
+        elif msg.topic == TOPIC_MOTION:
+            # Only write a unified entry when motion is detected
+            if 'motion' in payload and int(payload['motion']) == 1:
+                unified_data = latest_sensor_data.copy() if latest_sensor_data else {}
+                unified_data['motion'] = 1
+                write_to_influx("sensor_data", unified_data)
     except Exception as e:
         print(f"[ERROR] Message handling failed: {e}")
 

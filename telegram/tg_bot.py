@@ -1,6 +1,5 @@
 import os
-import json
-from datetime import datetime
+import requests
 from dotenv import load_dotenv
 import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -8,12 +7,11 @@ from telegram.ext import (
     Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 )
 
-# === Setup ===
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
-FEEDBACK_FILE = "ratings.json"
-LAST_VISUAL_FILE = "last_visual.json"
+# === API CONFIG ===
+VISUAL_API = os.getenv("VISUAL_API_URL", "http://localhost:5050")
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -22,37 +20,45 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === Data Helpers ===
-def load_last_visual():
-    if os.path.exists(LAST_VISUAL_FILE):
-        with open(LAST_VISUAL_FILE) as f:
-            return json.load(f)
-    return None
+def fetch_latest_visual():
+    try:
+        resp = requests.get(f"{VISUAL_API}/latest_visual", timeout=3)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            logger.warning(f"No visual found: {resp.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching latest visual: {e}")
+        return None
 
-def save_rating(user_id, rating):
-    visual = load_last_visual()
-    entry = {
+def save_rating(user_id, rating, visual_time):
+    payload = {
         "user_id": user_id,
         "rating": rating,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "visual": visual
+        "visual_time": visual_time
     }
-
-    data = []
-    if os.path.exists(FEEDBACK_FILE):
-        with open(FEEDBACK_FILE) as f:
-            data = json.load(f)
-    data.append(entry)
-
-    with open(FEEDBACK_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-    logger.info(f"Saved rating {rating} from user {user_id} with visual: {visual}")
+    try:
+        resp = requests.post(f"{VISUAL_API}/rate_visual", json=payload, timeout=3)
+        if resp.status_code == 200:
+            logger.info(f"Saved rating {rating} from user {user_id} for visual_time: {visual_time}")
+        else:
+            logger.error(f"Failed to save rating: {resp.text}")
+    except Exception as e:
+        logger.error(f"Error saving rating: {e}")
 
 # === Handlers ===
+
 def start(update, context):
     update.message.reply_text("Welcome to SmartArt! Tap /rate to rate the current visual.")
 
 def rate_menu(update, context):
+    visual = fetch_latest_visual()
+    if not visual:
+        update.message.reply_text("No visual available for rating right now.")
+        return
+    # Store visual_time in user_data for later use
+    context.user_data['visual_time'] = visual.get('time')
     keyboard = [
         [InlineKeyboardButton(f"{i} ⭐", callback_data=f"rate_{i}") for i in range(6)]
     ]
@@ -64,7 +70,11 @@ def button_handler(update: Update, context):
 
     if query.data.startswith("rate_"):
         rating = int(query.data.split("_")[1])
-        save_rating(query.from_user.id, rating)
+        visual_time = context.user_data.get('visual_time')
+        if not visual_time:
+            query.edit_message_text(text="❌ Could not link rating to visual.")
+            return
+        save_rating(query.from_user.id, rating, visual_time)
         query.edit_message_text(text=f"✅ Thanks for rating: {rating} ⭐")
 
 def unknown(update, context):
