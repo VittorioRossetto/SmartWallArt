@@ -5,6 +5,8 @@ import json
 import threading
 import paho.mqtt.client as mqtt
 import time
+import joblib
+import numpy as np
 
 # === MQTT CONFIG ===
 MQTT_BROKER = "localhost" 
@@ -20,6 +22,39 @@ sensor_data = {
     "humidity": 50,
     "motion": 0
 }
+
+# === AI Model Integration ===
+AI_MODEL_PATH = "../ai_rating_model/best_rating_model.pkl"  # Adjust path if needed
+USE_AI_SUGGESTION = True  # Set to False to disable AI influence
+
+try:
+    model = joblib.load(AI_MODEL_PATH)
+    features = ['light', 'temperature', 'humidity']
+except Exception as e:
+    print(f"Could not load AI model: {e}")
+    model = None
+
+def suggest_best_sensor_values(model, n_samples=100):
+    candidates = []
+    for _ in range(n_samples):
+        light = np.random.uniform(0, 1000)
+        temperature = np.random.uniform(10, 40)
+        humidity = np.random.uniform(30, 90)
+        candidates.append([light, temperature, humidity])
+    preds = model.predict(candidates)
+    best_idx = np.argmax(preds)
+    best = candidates[best_idx]
+    return dict(zip(features, best))
+
+def blend_sensor_values(real, ai_suggested, alpha=0.3):
+    blended = {}
+    for key in features:
+        blended[key] = (1 - alpha) * real[key] + alpha * ai_suggested[key]
+    # Preserve 'motion' and any other keys from real sensor data
+    for key in real:
+        if key not in blended:
+            blended[key] = real[key]
+    return blended
 
 # === MQTT HANDLER ===
 # This function will be called when a message is received on the subscribed topics
@@ -108,6 +143,12 @@ def draw_random_shapes(surface, base_color, count, opacity, chaos=0):
 # === INITIAL DRAWING ===
 # Draw the initial static image based on sensor data
 def draw_static_image():
+    global sensor_data
+    # Optionally blend sensor data with AI suggestion
+    if USE_AI_SUGGESTION and model is not None:
+        ai_suggested = suggest_best_sensor_values(model)
+        sensor_data = blend_sensor_values(sensor_data, ai_suggested, alpha=0.3)
+
     screen.fill(light_to_background(sensor_data["light"]))
 
     base_color = temp_to_color(sensor_data["temperature"])

@@ -17,11 +17,20 @@ print("Fetching ratings from InfluxDB...")
 ratings = list(client.query('SELECT * FROM visual_ratings').get_points())
 
 sensor_rows = []
+window_ns = 5 * 1_000_000_000  # 5 seconds in nanoseconds
 for r in ratings:
     visual_time = r.get('visual_time')
     if not visual_time:
         continue
-    sensor = list(client.query(f"SELECT * FROM sensor_data WHERE time = '{visual_time}'").get_points())
+    try:
+        vt_ns = int(pd.to_datetime(visual_time).value)
+    except Exception as e:
+        print(f"Could not parse visual_time {visual_time}: {e}")
+        continue
+    query = (
+        f"SELECT * FROM sensor_data WHERE time >= {vt_ns - window_ns} AND time <= {vt_ns + window_ns} LIMIT 1"
+    )
+    sensor = list(client.query(query).get_points())
     if sensor:
         row = {**sensor[0], 'rating': r['rating']}
         sensor_rows.append(row)
