@@ -6,6 +6,11 @@ import threading
 import paho.mqtt.client as mqtt
 import time
 
+"""
+ALTERNATIVE SCRIPT FOR ANIMATED PARTICLE ART: DEPRECATED
+"""
+
+
 # === MQTT CONFIG ===
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
