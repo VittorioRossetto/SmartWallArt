@@ -120,7 +120,13 @@ cd actuator
 python3 static_art_generator.py
 ```
 
-### 12. Start Grafana
+### 12. Run the Forecasting Module
+```bash
+python3 forecasting/forecast_data.py
+```
+This will forecast sensor values (temperature, humidity, light) using ARIMA and plot the results.
+
+### 13. Start Grafana
 ```bash
 sudo apt install -y grafana
 sudo systemctl start grafana-server
@@ -143,6 +149,7 @@ Configure InfluxDB as data source → `smartart` database.
 7. **AI Model Training** → `python3 ai_rating_model/train_rating_model.py` (after ratings are collected)  
 8. **Art Engine** → `python3 actuator/static_art_generator.py`  
 9. **Grafana** → `grafana-server`  
+10. **Forecasting Module** → `python3 forecasting/forecast_data.py`  
 
 ---
 
