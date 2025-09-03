@@ -4,6 +4,7 @@ import time  # For sleep/delay
 import json  # For encoding data as JSON
 import random  # For generating random sensor values
 import paho.mqtt.client as mqtt  # For MQTT communication
+import requests  # For sending HTTP requests to visual rating API
 
 
 # MQTT configuration
@@ -34,7 +35,13 @@ def generate_fake_motion():
     }
 
 
-# Main loop: publish sensor and motion data at intervals
+# Visual rating API configuration
+VISUAL_API_URL = "http://localhost:5050/rate_visual"  # Endpoint for rating API
+
+# Simulated user ID for ratings
+SIM_USER_ID = 9999
+
+# Main loop: publish sensor, motion, and simulated ratings
 try:
     while True:
         sensor_data = generate_fake_sensor_data()  # Generate sensor values
@@ -45,6 +52,25 @@ try:
 
         print("Published sensor:", sensor_data)  # Log sensor data
         print("Published motion:", motion_data)  # Log motion data
+
+        # Simulate visual rating after each motion event
+        if motion_data["motion"] == 1:
+            # Use current time as visual_time (ISO format)
+            visual_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            rating = random.randint(0, 5)  # Random rating 0-5
+            payload = {
+                "user_id": SIM_USER_ID,
+                "rating": rating,
+                "visual_time": visual_time
+            }
+            try:
+                resp = requests.post(VISUAL_API_URL, json=payload, timeout=2)
+                if resp.status_code == 200:
+                    print(f"Published simulated rating: {payload}")
+                else:
+                    print(f"Failed to publish rating: {resp.text}")
+            except Exception as e:
+                print(f"Error sending rating: {e}")
 
         time.sleep(5)  # Wait 5 seconds before next publish (adjust as needed)
 
