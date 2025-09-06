@@ -16,7 +16,7 @@ DB_NAME = 'smartart'  # InfluxDB database name
 # === Step 1: Read from InfluxDB ===
 client = InfluxDBClient(host=DB_HOST, port=DB_PORT, database=DB_NAME)  # Connect to InfluxDB
 field_str = ', '.join(['"{}"'.format(f) for f in SENSOR_FIELDS])  # Build field string for query
-query = f'SELECT {field_str} FROM "sensor_data"'  # Query last 2400 hours of data WHERE time > now() - 2400h
+query = f'SELECT {field_str} FROM "sensor_data"'  # Query last 2400 hours of data WHERE time > now() - 6h
 print("InfluxDB Query:", query)
 result = client.query(query)  # Execute query
 points = list(result.get_points())  # Get results as list of dicts
@@ -43,8 +43,10 @@ df = df.dropna()  # Drop rows with missing values
 
 
 # === Step 2: Forecasting Function ===
-def forecast_series(series, label, order=(2, 1, 2)):
-    # Forecast a single sensor field using ARIMA
+
+# === Step 2: Forecasting Function ===
+def forecast_series(series, label, ax, order=(2, 1, 2)):
+    # Forecast a single sensor field using ARIMA and plot on provided axis
     print(f"\n--- Forecasting {label} ---")
     data = series.resample('5S').mean().interpolate()  # Resample to 5-second intervals and interpolate missing values
 
@@ -83,19 +85,24 @@ def forecast_series(series, label, order=(2, 1, 2)):
 
     print(f"{label} - MAE: {mae:.2f}, MSE: {mse:.2f}")  # Print evaluation metrics
 
-    # Plot actual vs. forecasted values
-    plt.figure(figsize=(10, 4))
-    plt.plot(test.index, test.values, label='Actual')
-    plt.plot(test.index, forecast, label='Forecast')
-    plt.title(f'{label.capitalize()} Forecast')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    # Plot actual vs. forecasted values on the provided axis
+    ax.plot(test.index, test.values, label='Actual')
+    ax.plot(test.index, forecast, label='Forecast')
+    ax.set_title(f'{label.capitalize()} Forecast')
+    ax.legend()
+    ax.grid(True)
 
 
-# === Step 3: Forecast Each Field ===
-for field in SENSOR_FIELDS:
+# === Step 3: Forecast Each Field (all plots in one figure) ===
+fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+plotted = 0
+for idx, field in enumerate(SENSOR_FIELDS):
     if field in df.columns:
-        forecast_series(df[field], label=field)  # Forecast for each sensor field
+        forecast_series(df[field], label=field, ax=axes[idx])  # Forecast for each sensor field
+        plotted += 1
     else:
         print(f"Warning: Field '{field}' not found in data.")  # Warn if field missing
+
+if plotted:
+    plt.tight_layout()
+    plt.show()

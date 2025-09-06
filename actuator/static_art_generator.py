@@ -3,10 +3,12 @@ import random
 import math
 import json
 import threading
+import queue
 import paho.mqtt.client as mqtt
 import time
 import joblib
 import numpy as np
+import pandas as pd
 
 # === MQTT CONFIG ===
 MQTT_BROKER = "localhost" 
@@ -41,7 +43,9 @@ def suggest_best_sensor_values(model, n_samples=100):
         temperature = np.random.uniform(10, 40)
         humidity = np.random.uniform(30, 90)
         candidates.append([light, temperature, humidity])
-    preds = model.predict(candidates)
+    # Use DataFrame to match feature names and suppress sklearn warning
+    candidates_df = pd.DataFrame(candidates, columns=features)
+    preds = model.predict(candidates_df)
     best_idx = np.argmax(preds)
     best = candidates[best_idx]
     return dict(zip(features, best))
@@ -56,6 +60,9 @@ def blend_sensor_values(real, ai_suggested, alpha=0.3):
             blended[key] = real[key]
     return blended
 
+# === REDRAW QUEUE FOR THREAD-SAFE SIGNALING ===
+redraw_queue = queue.Queue()
+
 # === MQTT HANDLER ===
 # This function will be called when a message is received on the subscribed topics
 def on_message(client, userdata, msg):
@@ -66,6 +73,9 @@ def on_message(client, userdata, msg):
             sensor_data.update(data) # Update the sensor data with the new values
         elif msg.topic == MQTT_TOPIC_MOTION:
             sensor_data["motion"] = int(data["motion"]) # Update motion state
+            if sensor_data["motion"] == 1:
+                # Signal main thread to redraw
+                redraw_queue.put(True)
     except Exception as e: # Handle JSON decoding errors
         print("MQTT Message Error:", e) 
 
@@ -175,6 +185,14 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r: # Redraw the static image on 'R' key press
                 draw_static_image()
+
+    # Check for redraw signal from MQTT thread
+    try:
+        while not redraw_queue.empty():
+            redraw_queue.get_nowait()
+            draw_static_image()
+    except Exception:
+        pass
 
     clock.tick(10) # Control the frame rate
 
