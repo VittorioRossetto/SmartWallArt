@@ -60,6 +60,8 @@ def on_message(client, userdata, msg):
         if msg.topic == TOPIC_SENSOR:
             # Buffer the latest sensor data
             latest_sensor_data = payload
+            # Write every sensor reading to 'all_sensor_data' for full-data forecasting
+            write_to_influx("all_sensor_data", payload)
         elif msg.topic == TOPIC_MOTION:
             # Only write a unified entry when motion is detected
             if 'motion' in payload and int(payload['motion']) == 1:

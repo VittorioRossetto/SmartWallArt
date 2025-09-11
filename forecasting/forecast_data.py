@@ -16,7 +16,7 @@ DB_NAME = 'smartart'  # InfluxDB database name
 # === Step 1: Read from InfluxDB ===
 client = InfluxDBClient(host=DB_HOST, port=DB_PORT, database=DB_NAME)  # Connect to InfluxDB
 field_str = ', '.join(['"{}"'.format(f) for f in SENSOR_FIELDS])  # Build field string for query
-query = f'SELECT {field_str} FROM "sensor_data"'  # Query last 2400 hours of data WHERE time > now() - 6h
+query = f'SELECT {field_str} FROM "all_sensor_data" WHERE time > now() - 6h'  # Query last 6 hours of data
 print("InfluxDB Query:", query)
 result = client.query(query)  # Execute query
 points = list(result.get_points())  # Get results as list of dicts
@@ -91,6 +91,8 @@ def forecast_series(series, label, ax, order=(2, 1, 2)):
     ax.set_title(f'{label.capitalize()} Forecast')
     ax.legend()
     ax.grid(True)
+    # Disable scientific notation and offset for y-axis
+    ax.ticklabel_format(style='plain', useOffset=False, axis='y')
 
 
 # === Step 3: Forecast Each Field (all plots in one figure) ===

@@ -92,6 +92,8 @@ threading.Thread(target=mqtt_thread, daemon=True).start() # Start MQTT thread
 # === PYGAME SETUP ===
 pygame.init()
 WIDTH, HEIGHT = 1000, 700 # Set the dimensions of the window
+info = pygame.display.Info()
+WIDTH, HEIGHT = info.current_w, info.current_h
 screen = pygame.display.set_mode((WIDTH, HEIGHT)) # Create the Pygame window
 # pygame.display.set_icon(pygame.image.load("icon.png")) # Load an icon for the window
 pygame.display.set_caption("Smart Wall Art: Static Abstract") # Set the window title
@@ -116,13 +118,16 @@ def light_to_background(light):
 
 # Draw random shapes on the surface based on sensor data 
 def draw_random_shapes(surface, base_color, count, opacity, chaos=0):
-    shape_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    # Always use current surface size for all drawing
+    w, h = surface.get_size()
+    shape_surf = pygame.Surface((w, h), pygame.SRCALPHA)
 
     for _ in range(count):
         shape_type = random.choice(["circle", "square", "triangle", "line"])
-        x = random.randint(0, WIDTH)
-        y = random.randint(0, HEIGHT)
-        size = random.randint(20, 60)
+        x = random.randint(0, w)
+        y = random.randint(0, h)
+        # Scale shape size to screen size
+        size = random.randint(20, min(w, h) // 10 if min(w, h) > 200 else 60)
 
         # Randomly adjust the base color for each shape 
         r = max(0, min(255, base_color[0] + random.randint(-30, 30)))
@@ -131,7 +136,6 @@ def draw_random_shapes(surface, base_color, count, opacity, chaos=0):
 
         color = (r, g, b, opacity)
 
-        
         if shape_type == "circle":
             pygame.draw.circle(shape_surf, color, (x, y), size)
         elif shape_type == "square":

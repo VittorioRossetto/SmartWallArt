@@ -6,13 +6,13 @@
 
 // === Pins ===
 #define DHTPIN  32          // GPIO where DHT11 is connected
-#define DHTTYPE DHT11      // DHT 11
-#define PIRPIN  14         // GPIO for PIR motion sensor
-#define LIGHT_PIN 34      // GPIO (ADC1) for LDR light sensor
+#define DHTTYPE DHT11       // DHT 11
+#define PIRPIN  25          // GPIO for PIR motion sensor
+#define LIGHT_PIN 34        // GPIO (ADC1) for LDR light sensor
 
 // === Server Configuration ===
-const char* http_server = "http://192.168.1.10:5000";  // replace with your PC IP address
-const char* mqtt_broker = "192.168.1.10";              // replace with your MQTT broker IP
+const char* http_server = "http://192.168.1.62:5000";  // replace with your PC IP address
+const char* mqtt_broker = "192.168.1.62";              // replace with your MQTT broker IP
 const int mqtt_port = 1883;
 const char* config_topic = "smartart/config";
 
@@ -24,8 +24,7 @@ PubSubClient mqttClient(espClient);
 DHT dht(DHTPIN, DHTTYPE);
 
 // === Configurable Parameters ===
-int samplingRate = 2;      // seconds
-int motionThreshold = 1;    // dummy motion alert
+int samplingRate = 1;       // seconds (minimum practical for DHT11)
 
 // === Sensor values ===
 float temperature = 22.5;
@@ -42,11 +41,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (msg.indexOf("sampling_rate") > 0) {
     int newRate = msg.substring(msg.indexOf(":") + 1, msg.indexOf(",")).toInt();
     if (newRate > 0) samplingRate = newRate;
-  }
-
-  if (msg.indexOf("motion_alert") > 0) {
-    int mt = msg.substring(msg.lastIndexOf(":") + 1).toInt();
-    motionThreshold = mt;
   }
 }
 
@@ -81,29 +75,29 @@ void sendSensorData() {
   http.end();
 }
 
-void sendMotionData() {
+void sendMotionTrigger() {
   HTTPClient http;
   String url = String(http_server) + "/motion";
-  String json = "{\"motion\":" + String(motion ? 1 : 0) + "}";
+  String json = "{\"motion\":1}";   // always "1" for trigger event
 
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.POST(json);
-  Serial.print("[HTTP] Motion POST -> Code: ");
+  Serial.print("[HTTP] Motion TRIGGER POST -> Code: ");
   Serial.println(code);
   http.end();
 }
 
 unsigned long lastSend = 0;
+bool lastPirState = false;
+unsigned long lastMotionTime = 0;
+const unsigned long motionCooldown = 5000; // ignore repeats for 5s
 
 void setup() {
   Serial.begin(115200);
 
-  // PIR motion sensor pin as input
   pinMode(PIRPIN, INPUT);
-
-  // Light sensor pin input (analog)
   pinMode(LIGHT_PIN, INPUT);
 
   dht.begin();
@@ -127,10 +121,21 @@ void loop() {
   mqttClient.loop();
 
   unsigned long now = millis();
+
+  // === PIR motion (trigger-based) ===
+  bool pirState = digitalRead(PIRPIN) == HIGH;
+  if (pirState && !lastPirState && (now - lastMotionTime > motionCooldown)) {
+    // Rising edge detected
+    sendMotionTrigger();
+    lastMotionTime = now;
+    Serial.println("Motion trigger sent!");
+  }
+  lastPirState = pirState;
+
+  // === Other sensors (periodic) ===
   if (now - lastSend > samplingRate * 1000) {
     lastSend = now;
 
-    // Read sensors
     float newHum = dht.readHumidity();
     float newTemp = dht.readTemperature();
 
@@ -140,15 +145,12 @@ void loop() {
     if (!isnan(newTemp)) temperature = newTemp;
     else Serial.println("Failed to read temperature");
 
-    motion = digitalRead(PIRPIN) == HIGH;
-
     int rawLight = analogRead(LIGHT_PIN);
     light = (float)rawLight;
 
-    Serial.printf("Temperature: %.1f °C, Humidity: %.1f %%, Motion: %d, Light raw ADC: %d\n",
-                  temperature, humidity, motion ? 1 : 0, rawLight);
+    Serial.printf("Temperature: %.1f °C, Humidity: %.1f %%, Light raw ADC: %d\n",
+                  temperature, humidity, rawLight);
 
     sendSensorData();
-    sendMotionData();
   }
 }
