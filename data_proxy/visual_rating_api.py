@@ -20,8 +20,8 @@ app = Flask(__name__)  # Create Flask app
 # === API: Get Latest Visual (motion == 1) ===
 @app.route('/latest_visual', methods=['GET'])
 def latest_visual():
-    # Query InfluxDB for the latest sensor entry where motion == 1
-    query = 'SELECT * FROM sensor_data WHERE motion = 1 ORDER BY time DESC LIMIT 1'
+    # Query InfluxDB for the latest sensor entry where motion == 1, in sensor_data only measurements that generated a visual are stored 
+    query = 'SELECT * FROM sensor_data ORDER BY time DESC LIMIT 1'
     result = influx_client.query(query)  # Execute query
     points = list(result.get_points())  # Get results as list
     if points:

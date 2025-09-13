@@ -64,11 +64,23 @@ Publish a test message from another terminal:
 mosquitto_pub -t "smartart/sensor" -m '{"light":300,"temperature":22,"humidity":50}'
 ```
 
-### 3. Flash ESP32 Code
-Upload the ESP32 sketch from Arduino IDE or `arduino-cli`.  
+### 3. ESP32 Setup
+- Upload the ESP32 sketch from Arduino IDE or `arduino-cli`.  
+- Adjust your IP in the arduino script, it can be seen with the command `ip addr`
+- Connect to the ESP32 WiFi, `SmartWallArt_Config`
+- Open your browser at [http://192.168.4.1](http://192.168.4.1)
+- Press Configure WiFi
+- Chose the network on wich you want the ESP32 to operate
+- Connect your PC on thesame network
+
 This sends sensor readings to MQTT topics:  
 - `smartart/sensor`  
 - `smartart/motion`  
+
+To check status and messages from the ESP32:
+- Open Arduino IDE
+- Open Serial Monitor
+- Set baud to `115200`
 
 ### 4. Start InfluxDB
 ```bash
@@ -136,22 +148,6 @@ Open in browser: [http://localhost:3000](http://localhost:3000)
 (default login: `admin` / `admin`)  
 Configure InfluxDB as data source → `smartart` database.
 
----
-
-
-## Component Run Order
-1. **MQTT Broker** → `mosquitto -v`  
-2. **ESP32** → Upload and run sketch  
-3. **InfluxDB** → `influxd`  
-4. **Data Proxy** → `python3 data_proxy.py`  
-5. **Visual Rating API** → `python3 data_proxy/visual_rating_api.py`  
-6. **Telegram Bot** → `python3 telegram/tg_bot.py`  
-7. **AI Model Training** → `python3 ai_rating_model/train_rating_model.py` (after ratings are collected)  
-8. **Art Engine** → `python3 actuator/static_art_generator.py`  
-9. **Grafana** → `grafana-server`  
-10. **Forecasting Module** → `python3 forecasting/forecast_data.py`  
-
----
 
 
 ## About the Project
@@ -170,8 +166,10 @@ User ratings are collected via Telegram, and an AI model learns which sensor val
 - `data_proxy/` — Data proxy, rating API
 - `esp32/` — ESP32 microcontroller code
 - `forecasting/` — Sensor data forecasting scripts
-- `telegram/` — Telegram bot and ratings
+- `telegram/` — Telegram bot for ratings
 - `requirements.txt` — Python dependencies
+- `IoT_ProjectReport.pdf` — Complete project report, refer to this for further insights.
+ 
 
 
 ## Author

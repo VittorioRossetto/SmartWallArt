@@ -91,9 +91,8 @@ threading.Thread(target=mqtt_thread, daemon=True).start() # Start MQTT thread
 
 # === PYGAME SETUP ===
 pygame.init()
-WIDTH, HEIGHT = 1000, 700 # Set the dimensions of the window
-info = pygame.display.Info()
-WIDTH, HEIGHT = info.current_w, info.current_h
+info = pygame.display.Info() # Get display informations
+WIDTH, HEIGHT = info.current_w, info.current_h # Use full screen size
 screen = pygame.display.set_mode((WIDTH, HEIGHT)) # Create the Pygame window
 # pygame.display.set_icon(pygame.image.load("icon.png")) # Load an icon for the window
 pygame.display.set_caption("Smart Wall Art: Static Abstract") # Set the window title
@@ -117,7 +116,7 @@ def light_to_background(light):
     return (v, v, v)
 
 # Draw random shapes on the surface based on sensor data 
-def draw_random_shapes(surface, base_color, count, opacity, chaos=0):
+def draw_random_shapes(surface, base_color, count, opacity, chaos=20):
     # Always use current surface size for all drawing
     w, h = surface.get_size()
     shape_surf = pygame.Surface((w, h), pygame.SRCALPHA)

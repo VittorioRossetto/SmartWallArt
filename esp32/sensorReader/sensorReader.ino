@@ -11,8 +11,8 @@
 #define LIGHT_PIN 34        // GPIO (ADC1) for LDR light sensor
 
 // === Server Configuration ===
-const char* http_server = "http://192.168.1.62:5000";  // replace with your PC IP address
-const char* mqtt_broker = "192.168.1.62";              // replace with your MQTT broker IP
+const char* http_server = "http://192.168.175.203:5000";  // replace with your PC IP address
+const char* mqtt_broker = "192.168.175.203";              // replace with your MQTT broker IP
 const int mqtt_port = 1883;
 const char* config_topic = "smartart/config";
 

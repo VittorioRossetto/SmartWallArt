@@ -13,10 +13,10 @@ DB_HOST = 'localhost'  # InfluxDB host
 DB_PORT = 8086        # InfluxDB port
 DB_NAME = 'smartart'  # InfluxDB database name
 
-# === Step 1: Read from InfluxDB ===
+# === Read from InfluxDB ===
 client = InfluxDBClient(host=DB_HOST, port=DB_PORT, database=DB_NAME)  # Connect to InfluxDB
 field_str = ', '.join(['"{}"'.format(f) for f in SENSOR_FIELDS])  # Build field string for query
-query = f'SELECT {field_str} FROM "all_sensor_data" WHERE time > now() - 6h'  # Query last 6 hours of data
+query = f'SELECT {field_str} FROM "all_sensor_data" WHERE time > now() - 6h'  # Query last 6 hours of data 
 print("InfluxDB Query:", query)
 result = client.query(query)  # Execute query
 points = list(result.get_points())  # Get results as list of dicts
@@ -42,9 +42,8 @@ df.set_index('time', inplace=True)  # Set time as index
 df = df.dropna()  # Drop rows with missing values
 
 
-# === Step 2: Forecasting Function ===
 
-# === Step 2: Forecasting Function ===
+# === Forecasting Function ===
 def forecast_series(series, label, ax, order=(2, 1, 2)):
     # Forecast a single sensor field using ARIMA and plot on provided axis
     print(f"\n--- Forecasting {label} ---")
@@ -95,7 +94,7 @@ def forecast_series(series, label, ax, order=(2, 1, 2)):
     ax.ticklabel_format(style='plain', useOffset=False, axis='y')
 
 
-# === Step 3: Forecast Each Field (all plots in one figure) ===
+# === Forecast Each Field (all plots in one figure) ===
 fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 plotted = 0
 for idx, field in enumerate(SENSOR_FIELDS):
