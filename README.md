@@ -168,7 +168,7 @@ User ratings are collected via Telegram, and an AI model learns which sensor val
 - `forecasting/` — Sensor data forecasting scripts
 - `telegram/` — Telegram bot for ratings
 - `requirements.txt` — Python dependencies
-- `IoT_ProjectReport.pdf` — Complete project report, refer to this for further insights.
+- `Report.pdf` — Complete project report, refer to this for further insights and explanations.
  
 
 
